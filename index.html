@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>制药质量管理周报英文短语助手</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <!-- Chosen Palette: Warm Parchment -->
+    <!-- Application Structure Plan: The SPA is designed as a "Situational Phrase Finder" tool. It uses a persistent sidebar navigation for different reporting scenarios (Framework, Core Activities, Challenges, etc.), which is more task-oriented than the original report's linear structure. The main content area dynamically displays phrase cards based on the selected category or search query. This structure transforms the static guide into an efficient, interactive tool, allowing users to quickly find and copy relevant phrases for immediate use, directly addressing their need for a practical reporting aid. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Lists of English/Chinese phrases. Goal: Inform, Quick Reference. Presentation: Interactive "phrase cards". Interaction: Click-to-copy buttons, category filtering, text search. Justification: Maximizes usability and efficiency. Method: Vanilla JS DOM manipulation.
+        - Report Info: Summary Tables (e.g., CAPA Lifecycle). Goal: Organize, Show Process. Presentation: Responsive HTML tables and a CSS-based process flow diagram. Interaction: Hover effects. Justification: More engaging and clearer than static tables. Method: HTML/Tailwind.
+        - Report Info: Quality Metrics data example. Goal: Demonstrate data presentation. Viz/Presentation: A simple bar chart next to example phrases. Interaction: Static visual aid. Justification: Provides a concrete visual example for the abstract concept of data reporting. Library: Chart.js (Canvas).
+        - Report Info: Glossary. Goal: Inform. Presentation: A searchable definition list. Interaction: Search filter. Justification: Improves findability. Method: JS filtering.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans SC', sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #f3e9e0 100%);
+            color: #4A4A4A;
+            font-size: 1.08rem;
+            min-height: 100vh;
+        }
+        .active-nav {
+            background-color: #EAE2D6;
+            color: #2c5282;
+            font-weight: 600;
+        }
+        .chart-container {
+            position: relative;
+            margin: auto;
+            height: 300px;
+            width: 100%;
+            max-width: 500px;
+        }
+        .prose-custom {
+            color: #4A4A4A;
+        }
+        .prose-custom p {
+            margin-bottom: 1rem;
+            line-height: 1.75;
+        }
+        .prose-custom h3 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid #EAE2D6;
+        }
+        .prose-custom ul {
+            list-style-position: inside;
+            margin-left: 0.5rem;
+        }
+        .prose-custom li {
+            margin-bottom: 0.5rem;
+        }
+        .prose-custom strong {
+            color: #2c5282;
+        }
+        #sidebar {
+            background: rgba(246, 241, 233, 0.85);
+            backdrop-filter: blur(12px);
+            border-right: 1.5px solid #e2e8f0;
+            box-shadow: 0 2px 24px 0 rgba(44, 82, 130, 0.04);
+        }
+        #main-content {
+            padding: 2.5rem 2rem 2rem 2rem;
+            min-height: 100vh;
+        }
+        #report-builder-modal > div {
+            background: rgba(255,255,255,0.98);
+            border-radius: 1.5rem;
+            box-shadow: 0 8px 40px 0 rgba(44, 82, 130, 0.18);
+            border: 1.5px solid #e2e8f0;
+            padding: 2.5rem 2rem 2rem 2rem;
+            max-width: 32rem;
+            width: 100%;
+            transition: all 0.3s cubic-bezier(.4,0,.2,1);
+        }
+        #report-builder-modal {
+            transition: background 0.3s cubic-bezier(.4,0,.2,1);
+        }
+        button, .copy-btn {
+            border-radius: 9999px;
+            background: linear-gradient(90deg, #6C8EAD 0%, #8bb6e2 100%);
+            color: #fff;
+            font-weight: 500;
+            transition: background 0.2s, box-shadow 0.2s, color 0.2s;
+            box-shadow: 0 2px 8px 0 rgba(44, 82, 130, 0.08);
+        }
+        button:hover, .copy-btn:hover {
+            background: linear-gradient(90deg, #597a9b 0%, #6C8EAD 100%);
+            color: #fff;
+        }
+        h1, h2, h3 {
+            color: #2c5282;
+            letter-spacing: 0.01em;
+        }
+        #draft-en {
+            padding: 1.5rem !important;
+            font-size: 1.08rem;
+            line-height: 1.8;
+            color: #2c5282;
+            white-space: pre-wrap;
+            word-break: break-word;
+            margin-bottom: 2rem;
+            max-width: 100%;
+            overflow-x: auto;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body class="antialiased">
+
+    <div id="app" class="flex flex-col md:flex-row min-h-screen">
+        
+        <!-- Sidebar Navigation -->
+        <nav id="sidebar" class="w-full md:w-64 lg:w-72 bg-[#F6F1E9] p-4 md:p-6 flex-shrink-0 transition-all duration-300">
+            <h1 class="text-2xl font-bold text-gray-800 mb-6">汇报短语助手</h1>
+            <button id="start-report-builder" class="w-full mb-4 px-4 py-2 bg-[#2c5282] text-white rounded-md hover:bg-[#1a365d] focus:outline-none focus:ring-2 focus:ring-[#6C8EAD]" aria-label="启动智能汇报生成器">智能汇报生成器</button>
+            <div class="relative mb-6">
+                <input type="text" id="search-input" placeholder="搜索关键词 (如 'SOP')" class="w-full pl-8 pr-4 py-2 border border-gray-300 rounded-full bg-white focus:outline-none focus:ring-2 focus:ring-[#6C8EAD]" aria-label="搜索短语">
+                <svg class="w-4 h-4 text-gray-400 absolute top-1/2 left-3 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+            <ul id="nav-list" class="space-y-2"></ul>
+        </nav>
+
+        <!-- Main Content -->
+        <main id="main-content" class="flex-1 p-4 sm:p-6 md:p-8 lg:p-10 overflow-y-auto">
+            <!-- Content will be injected here -->
+        </main>
+    </div>
+
+    <!-- Phrase Card Template -->
+    <template id="phrase-card-template">
+        <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200/80 mb-4 transition-all duration-300 hover:shadow-md">
+            <p class="text-lg font-semibold text-gray-800 mb-2 phrase-english"></p>
+            <p class="text-gray-600 mb-4 phrase-chinese"></p>
+            <div class="flex items-center justify-end">
+                <button class="copy-btn flex items-center px-3 py-1 bg-[#6C8EAD] text-white text-sm rounded-md hover:bg-[#597a9b] transition-colors">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    <span>复制</span>
+                </button>
+            </div>
+        </div>
+    </template>
+
+    <!-- Content-Specific Templates -->
+    <template id="metrics-template">
+        <div class="prose-custom max-w-full">
+            <h3>呈现质量指标与数据趋势</h3>
+            <p>呈现关键质量指标时，单纯罗列数字是不够的。更有效的方法是采用"数据到叙述"的模式，即 <strong>呈现指标 (State the Metric) → 提供背景 (Provide Context) → 解释趋势 (Explain the Trend) → 陈述行动 (State Actions)</strong>。这种结构化的汇报方式能够清晰地解释数据背后的业务含义，展示您的分析能力和前瞻性规划。</p>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6 items-center">
+            <div id="phrase-container"></div>
+            <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200/80">
+                 <div class="chart-container">
+                    <canvas id="metricsChart"></canvas>
+                </div>
+                <p class="text-center text-sm text-gray-500 mt-2">示例图表：首次通过率 (FPY) 趋势</p>
+            </div>
+        </div>
+    </template>
+    
+    <template id="capa-lifecycle-template">
+        <div class="prose-custom max-w-full">
+            <h3>CAPA 沟通生命周期</h3>
+            <p>在汇报CAPA（纠正和预防措施）时，管理层最关心的是一个结构化、受控的流程是否正在被严格执行。您的沟通也应该反映这个流程的各个阶段，从问题的识别到有效性的验证，以此传递出专业和掌控感。</p>
+        </div>
+        <div class="mt-8 flow-root">
+          <div class="-my-6">
+            <div class="relative p-6">
+              <div class="absolute left-9 top-0 h-full w-px bg-gray-300" aria-hidden="true"></div>
+              <div class="relative flex items-start space-x-6">
+                <div>
+                  <div class="relative px-1">
+                    <div class="flex h-8 w-8 items-center justify-center rounded-full bg-[#6C8EAD] ring-8 ring-white">
+                      <span class="text-white font-bold">1</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="min-w-0 flex-1 pt-1.5">
+                  <div class="text-base font-semibold text-gray-700">偏差/OOS识别</div>
+                  <p class="mt-1 text-sm text-gray-600">正式报告问题，并说明已采取的紧急控制措施。<br><em>关键短语: "A deviation, DEV-[X], has been raised."</em></p>
+                </div>
+              </div>
+            </div>
+            <div class="relative p-6">
+              <div class="absolute left-9 top-0 h-full w-px bg-gray-300" aria-hidden="true"></div>
+              <div class="relative flex items-start space-x-6">
+                <div>
+                  <div class="relative px-1">
+                    <div class="flex h-8 w-8 items-center justify-center rounded-full bg-[#6C8EAD] ring-8 ring-white">
+                      <span class="text-white font-bold">2</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="min-w-0 flex-1 pt-1.5">
+                  <div class="text-base font-semibold text-gray-700">根本原因分析 (RCA)</div>
+                  <p class="mt-1 text-sm text-gray-600">解释调查过程与发现，明确最可能的原因。<br><em>关键短语: "The root cause investigation has concluded that..."</em></p>
+                </div>
+              </div>
+            </div>
+            <div class="relative p-6">
+              <div class="absolute left-9 top-0 h-full w-px bg-gray-300" aria-hidden="true"></div>
+              <div class="relative flex items-start space-x-6">
+                <div>
+                  <div class="relative px-1">
+                    <div class="flex h-8 w-8 items-center justify-center rounded-full bg-[#6C8EAD] ring-8 ring-white">
+                      <span class="text-white font-bold">3</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="min-w-0 flex-1 pt-1.5">
+                  <div class="text-base font-semibold text-gray-700">纠正/预防措施计划</div>
+                  <p class="mt-1 text-sm text-gray-600">概述解决问题的具体计划和防止复发的措施。<br><em>关键短语: "The proposed corrective action is to..."</em></p>
+                </div>
+              </div>
+            </div>
+            <div class="relative p-6">
+              <div class="absolute left-9 top-0 h-full w-px bg-gray-300" aria-hidden="true"></div>
+              <div class="relative flex items-start space-x-6">
+                <div>
+                  <div class="relative px-1">
+                    <div class="flex h-8 w-8 items-center justify-center rounded-full bg-[#6C8EAD] ring-8 ring-white">
+                      <span class="text-white font-bold">4</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="min-w-0 flex-1 pt-1.5">
+                  <div class="text-base font-semibold text-gray-700">实施与有效性验证</div>
+                  <p class="mt-1 text-sm text-gray-600">报告措施的执行状态和验证其有效性的结果。<br><em>关键短语: "We are now monitoring the process to verify effectiveness."</em></p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+    </template>
+
+    <template id="glossary-template">
+         <div class="prose-custom max-w-full">
+            <h3>常用术语表</h3>
+            <p>在专业的汇报中，准确使用行业术语和缩略语是展现专业性的基本要求。这个列表包含了质量管理领域最常用的一些缩写，帮助您在沟通中保持清晰和准确。</p>
+        </div>
+        <div class="mt-6">
+            <dl id="glossary-list" class="space-y-4"></dl>
+        </div>
+    </template>
+    
+    <!-- Report Builder Modal -->
+    <div id="report-builder-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden" role="dialog" aria-modal="true" aria-labelledby="reportBuilderTitle">
+        <div class="bg-white rounded-xl shadow-lg w-full max-w-lg p-6 relative overflow-y-auto" style="max-height:90vh;">
+            <button id="close-report-builder" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700" aria-label="关闭">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <h2 id="reportBuilderTitle" class="text-2xl font-bold mb-4 text-gray-800">智能汇报生成器</h2>
+            <form id="report-builder-form" class="space-y-4">
+                <div>
+                    <label class="block text-gray-700 font-medium mb-1" for="report-type">汇报类型</label>
+                    <select id="report-type" class="w-full border border-gray-300 rounded-md px-3 py-2" required>
+                        <option value="weekly">周报 (Weekly)</option>
+                        <option value="deviation">偏差报告 (Deviation)</option>
+                        <option value="capa">CAPA报告 (CAPA)</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-medium mb-1" for="report-dates">汇报周期/日期</label>
+                    <input id="report-dates" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2" placeholder="如 2024-06-01 至 2024-06-07" required>
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-medium mb-1" for="report-metrics">关键指标/数据 (可选)</label>
+                    <input id="report-metrics" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2" placeholder="如 FPY 99.2%, CAPA关闭3项">
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-medium mb-1" for="report-issues">主要问题/挑战 (可选)</label>
+                    <input id="report-issues" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2" placeholder="如 OOS, 偏差, CAPA延迟">
+                </div>
+                <div>
+                    <label class="block text-gray-700 font-medium mb-1" for="report-actions">采取的措施/后续计划 (可选)</label>
+                    <input id="report-actions" type="text" class="w-full border border-gray-300 rounded-md px-3 py-2" placeholder="如 优化流程, 跟进培训">
+                </div>
+                <button type="submit" class="w-full bg-[#6C8EAD] text-white py-2 rounded-md hover:bg-[#597a9b] font-semibold">生成英文汇报草稿</button>
+            </form>
+            <div id="report-draft" class="mt-6 hidden">
+                <h3 class="text-lg font-bold mb-2 text-gray-800">智能英文汇报草稿</h3>
+                <div class="bg-gray-50 p-4 rounded-md border border-gray-200 text-gray-800 whitespace-pre-line" tabindex="0"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const appData = {
+                categories: [
+                    { id: 'opening', name: '汇报开场', parent: 'framework' },
+                    { id: 'progress', name: '总结进展与成果', parent: 'framework' },
+                    { id: 'transitions', name: '主题间过渡', parent: 'framework' },
+                    { id: 'closing', name: '结束汇报', parent: 'framework' },
+                    { id: 'gmp', name: '合规与GMP状态', parent: 'activities' },
+                    { id: 'bmr', name: '批记录审核(BMR)', parent: 'activities' },
+                    { id: 'sop', name: 'SOP与文件控制', parent: 'activities' },
+                    { id: 'metrics', name: '质量指标与数据', parent: 'activities' },
+                    { id: 'deviations', name: '偏差与不符合项', parent: 'challenges' },
+                    { id: 'oos', name: 'OOS结果', parent: 'challenges' },
+                    { id: 'capa', name: 'CAPA概述', parent: 'challenges' },
+                    { id: 'capa_lifecycle', name: 'CAPA沟通生命周期', parent: 'challenges' },
+                    { id: 'blockers', name: '提出障碍与请求支持', parent: 'challenges' },
+                    { id: 'opinions', name: '表达意见与建议', parent: 'advanced' },
+                    { id: 'questions', name: '处理提问与打断', parent: 'advanced' },
+                    { id: 'glossary', name: '常用术语表', parent: 'advanced' },
+                ],
+                parentCategories: [
+                    { id: 'framework', name: '第一部分：周报的核心框架', desc: "本部分为您构建一个专业汇报的基础结构。它提供了一个清晰的逻辑框架，让您能够在此之上填充具体的质量管理细节，确保您的汇报从始至终都条理分明、专业得体。" },
+                    { id: 'activities', name: '第二部分：核心质量活动', desc: "本部分将深入探讨药品质量管理专业人员日常职责所需的特定语言。它为您提供了一套专业化的词汇库，用于汇报合规、批记录、SOP和质量数据等核心工作。" },
+                    { id: 'challenges', name: '第三部分：应对挑战', desc: "本部分专注于处理出现问题时的高风险沟通，例如偏差、OOS和CAPA。在这种情况下，语言必须结构化、精确，并能在不确定性中传递出掌控感和信心。" },
+                    { id: 'advanced', name: '第四部分：高级沟通技巧', desc: "最后一部分提供了更精细的表达方式，能将您从一个单纯的报告者提升为有影响力的团队成员。它专注于处理动态的会议互动，并展示更高水平的专业沟通技巧。" },
+                ],
+                phrases: [
+                    { cat: 'opening', en: "Good morning/afternoon, everyone.", zh: "大家早上好/下午好。" },
+                    { cat: 'opening', en: "For those who don't know me, my name is [Your Name], and I'm a Quality Assurance Officer.", zh: "对于不认识我的同事，我叫[你的名字]，是一名质量保证专员。" },
+                    { cat: 'opening', en: "The purpose of my update today is to cover the key quality activities from the week of [start date] to [end date].", zh: "我今天汇报的目的是涵盖从[开始日期]到[结束日期]这一周的关键质量活动。" },
+                    { cat: 'opening', en: "This morning, I'll be reporting on the progress for the past week.", zh: "今天上午，我将汇报过去一周的工作进展。" },
+                    { cat: 'opening', en: "I've divided my update into three main parts: first...; second...; and finally...", zh: "我的汇报分为三个主要部分：首先是…；其次是…；最后是…" },
+                    { cat: 'opening', en: "In my report, I'll focus on three major issues...", zh: "在我的报告中，我将重点关注三个主要问题…" },
+                    
+                    { cat: 'progress', en: "This past week, we successfully completed the review of all scheduled batches.", zh: "过去一周，我们成功完成了所有计划批次的审核。" },
+                    { cat: 'progress', en: "We made significant progress on the validation project.", zh: "我们在验证项目上取得了重要进展。" },
+                    { cat: 'progress', en: "Regarding our key objectives for the week, all targets were met.", zh: "关于本周的关键目标，所有指标均已达成。" },
+                    { cat: 'progress', en: "A key achievement this week was the final approval and rollout of the new GMP training module.", zh: "本周的一项关键成就是新的GMP培训模块获得最终批准并正式推行。" },
+                    { cat: 'progress', en: "I'm pleased to report that we have closed three long-standing CAPAs, ahead of schedule.", zh: "我很高兴地报告，我们已经提前完成了三个长期未关闭的CAPA。" },
+                    
+                    { cat: 'transitions', en: "Moving on to the next item, let's discuss the batch record reviews.", zh: "接下来，我们讨论批记录审核。" },
+                    { cat: 'transitions', en: "Now, I'd like to turn to the topic of SOP updates.", zh: "现在，我想谈谈SOP更新的话题。" },
+                    { cat: 'transitions', en: "The next point I'd like to address is...", zh: "我想谈的下一点是…" },
+                    { cat: 'transitions', en: "Now that we've covered the batch reviews, this leads me to a related point: the need for an updated SOP.", zh: "既然我们已经讨论了批记录审核，这就引出了一个相关的话题：更新SOP是必要的。" },
+                    { cat: 'transitions', en: "In addition to our routine activities, we also had to address an unplanned deviation. I'll cover that now.", zh: "除了我们的常规活动，我们还处理了一起计划外偏差。我现在将对此进行说明。" },
+                    
+                    { cat: 'closing', en: "To summarize, the key takeaways from this week are...", zh: "总结一下，本周的关键信息是…" },
+                    { cat: 'closing', en: "In a nutshell, it was a productive week with a focus on maintaining compliance.", zh: "简而言之，这是富有成效的一周，重点是维持合规性。" },
+                    { cat: 'closing', en: "For the upcoming week, my main priorities will be...", zh: "下周，我的主要优先事项是…" },
+                    { cat: 'closing', en: "The action plan for next week involves...", zh: "下周的行动计划包括…" },
+                    { cat: 'closing', en: "That concludes my update. I'm now happy to answer any questions you may have.", zh: "我的汇报到此结束。现在我很高兴回答大家可能有的任何问题。" },
+                    { cat: 'closing', en: "Thank you for your attention. Are there any questions?", zh: "感谢各位的聆听。有什么问题吗？" },
+                    
+                    { cat: 'gmp', en: "This week, all operations remained in full compliance with cGMP standards.", zh: "本周，所有操作均完全符合cGMP标准。" },
+                    { cat: 'gmp', en: "We continue to maintain a state of audit readiness across all departments.", zh: "我们各部门继续保持随时待审的状态。" },
+                    { cat: 'gmp', en: "Regarding personnel training, all required GMP training for the month has been completed and documented.", zh: "关于人员培训，本月所有要求的GMP培训均已完成并记录在案。" },
+                    { cat: 'gmp', en: "All equipment logs have been reviewed and show adherence to the established cleaning and maintenance schedules.", zh: "所有设备日志均已审核，显示符合既定的清洁和维护计划。" },
+
+                    { cat: 'bmr', en: "The BMRs for batches [X, Y, Z] were reviewed and found to be complete and accurate.", zh: "批号为[X, Y, Z]的BMR已审核，记录完整准确。" },
+                    { cat: 'bmr', en: "All CPPs and CQAs for the reviewed batches were verified and met all specifications.", zh: "已审核批次的所有关键工艺参数（CPPs）和关键质量属性（CQAs）均已核实并符合所有标准。" },
+                    { cat: 'bmr', en: "During the review of BMR for batch [X], we identified a minor documentation error.", zh: "在审核批号为[X]的BMR时，我们发现了一个轻微的文件记录错误。" },
+                    { cat: 'bmr', en: "We noted an exception regarding a missing signature. This has been corrected and documented via a correction sheet.", zh: "我们注意到一个签名缺失的异常。该问题已通过更正单进行更正并记录。" },
+
+                    { cat: 'sop', en: "The biennial review for SOP-QC-011 is now complete, and no changes were required.", zh: "SOP-QC-011的两年期审核现已完成，无需变更。" },
+                    { cat: 'sop', en: "SOP-PROD-023 has been revised to incorporate the new equipment. The draft is currently routed for approval.", zh: "SOP-PROD-023已修订以包含新设备。草案目前正在传阅审批中。" },
+                    { cat: 'sop', en: "The new SOP for handling OOS results, SOP-QC-025, is now effective as of [date].", zh: "处理OOS结果的新SOP，即SOP-QC-025，已于[日期]起生效。" },
+                    { cat: 'sop', en: "Training on the revised SOP has been assigned to all relevant personnel and is being tracked for completion.", zh: "修订后SOP的培训已分配给所有相关人员，并正在追踪完成情况。" },
+
+                    { cat: 'metrics', en: "This week, our First-Pass Yield (FPY) was 99.2%.", zh: "本周，我们的首次通过率为99.2%。" },
+                    { cat: 'metrics', en: "...which is a slight improvement from last week's 98.9% and exceeds our target of 98.5%.", zh: "…这比上周的98.9%略有提高，并超过了我们98.5%的目标。" },
+                    { cat: 'metrics', en: "We attribute this improvement to the recent simplification of the manufacturing process.", zh: "我们将首次通过率的提高归因于近期简化的生产流程。" },
+                    { cat: 'metrics', en: "We will continue to monitor this trend to ensure the improvement is sustained.", zh: "我们将继续监控这一趋势，以确保改善得以持续。" },
+
+                    { cat: 'deviations', en: "An unplanned deviation was identified on [date] in the [Area/Process].", zh: "于[日期]在[区域/流程]发现了一起计划外偏差。" },
+                    { cat: 'deviations', en: "I need to report a [minor/major/critical] deviation related to [Product/Process].", zh: "我需要报告一个关于[产品/流程]的[轻微/主要/严重]偏差。" },
+                    { cat: 'deviations', en: "The deviation report, number [DEV-XXX], has been initiated in our QMS.", zh: "偏差报告，编号[DEV-XXX]，已在我们的质量管理体系中启动。" },
+                    { cat: 'deviations', en: "Immediate actions were taken to contain the issue, which included segregating the affected material.", zh: "已采取紧急措施控制问题，包括隔离受影响的物料。" },
+
+                    { cat: 'oos', en: "An Out-of-Specification (OOS) result was confirmed for [Product/Test/Batch].", zh: "已确认[产品/测试/批次]出现检验结果超标（OOS）。" },
+                    { cat: 'oos', en: "The result for [Test Parameter] was [Actual Value], which is outside the established specification of [Specification Range].", zh: "[测试参数]的结果为[实际值]，超出了[标准范围]的既定标准。" },
+                    { cat: 'oos', en: "A formal OOS laboratory investigation has been initiated to determine the root cause.", zh: "已启动正式的OOS实验室调查以确定根本原因。" },
+                    { cat: 'oos', en: "At this stage, we have not identified an assignable cause related to laboratory error.", zh: "在现阶段，我们尚未发现与实验室错误相关的可归属原因。" },
+                    
+                    { cat: 'capa', en: "The root cause analysis for CAPA [Number] is ongoing.", zh: "CAPA [编号]的根本原因分析正在进行中。" },
+                    { cat: 'capa', en: "The investigation has identified the most probable root cause as [state the root cause].", zh: "调查已确定最可能的根本原因为[陈述根本原因]。" },
+                    { cat: 'capa', en: "Based on the RCA, we have proposed the following corrective actions: [List actions].", zh: "基于根本原因分析，我们提出了以下纠正措施：[列出措施]。" },
+                    { cat: 'capa', en: "The corrective action plan has been approved, and implementation is underway.", zh: "纠正措施计划已获批准，正在实施中。" },
+                    { cat: 'capa', en: "An effectiveness check for CAPA [Number] is scheduled for [date].", zh: "CAPA [编号]的有效性检查计划于[日期]进行。" },
+
+                    { cat: 'blockers', en: "I need to highlight a blocker that is impacting our ability to close CAPA [Number].", zh: "我需要强调一个影响我们关闭CAPA [编号]的障碍。" },
+                    { cat: 'blockers', en: "Our progress is currently impeded by a delay in receiving the analysis report.", zh: "我们的进展目前因延迟收到分析报告而受阻。" },
+                    { cat: 'blockers', en: "This delay puts the CAPA closure deadline at risk.", zh: "这一延迟使CAPA的关闭截止日期面临风险。" },
+                    { cat: 'blockers', en: "I would like to request support from [Department/Person] to help expedite this.", zh: "我想请求[部门/人员]的支持以帮助加快此事。" },
+                    { cat: 'blockers', en: "Could we schedule a follow-up meeting with Engineering to discuss the timeline for this?", zh: "我们能否与工程部安排一次后续会议，讨论此事的时间表？" },
+
+                    { cat: 'opinions', en: "From my point of view...", zh: "从我的角度来看…" },
+                    { cat: 'opinions', en: "Based on my experience...", zh: "根据我的经验…" },
+                    { cat: 'opinions', en: "I strongly recommend that we...", zh: "我强烈建议我们…" },
+                    { cat: 'opinions', en: "I understand your point; however, from a quality perspective, we need to consider...", zh: "我理解您的观点，但从质量的角度来看，我们需要考虑…" },
+                    
+                    { cat: 'questions', en: "I'm not sure I fully understand. Could you please rephrase the question?", zh: "我不确定我完全理解了。您能重新表述一下问题吗？" },
+                    { cat: 'questions', en: "So, if I understand correctly, you're asking about...?", zh: "所以，如果我理解正确的话，您是在问关于…？" },
+                    { cat: 'questions', en: "That's an excellent question. The reason for that is...", zh: "这是一个很好的问题。其原因是…" },
+                    { cat: 'questions', en: "If you don't mind, I'd like to finish this point, and then I'll address your question.", zh: "如果您不介意的话，我想先说完这一点，然后回答您的问题。" },
+                    { cat: 'questions', en: "I don't have that data with me right now, but I will follow up with you by the end of the day.", zh: "我现在手头没有相关数据，但我会在今天之内给您答复。" },
+                ],
+                glossary: [
+                    { term: 'BMR', def: 'Batch Manufacturing Record (批生产记录)' },
+                    { term: 'CAPA', def: 'Corrective and Preventive Action (纠正和预防措施)' },
+                    { term: 'CQA', def: 'Critical Quality Attribute (关键质量属性)' },
+                    { term: 'CPP', def: 'Critical Process Parameter (关键工艺参数)' },
+                    { term: 'GDP', def: 'Good Documentation Practices (良好文档规范)' },
+                    { term: 'GLP', def: 'Good Laboratory Practices (良好实验室规范)' },
+                    { term: 'GMP', def: 'Good Manufacturing Practice (良好生产规范)' },
+                    { term: 'OOS', def: 'Out of Specification (检验结果超标)' },
+                    { term: 'QMS', def: 'Quality Management System (质量管理体系)' },
+                    { term: 'RCA', def: 'Root Cause Analysis (根本原因分析)' },
+                    { term: 'SOP', def: 'Standard Operating Procedure (标准操作程序)' },
+                ]
+            };
+
+            const navList = document.getElementById('nav-list');
+            const mainContent = document.getElementById('main-content');
+            const searchInput = document.getElementById('search-input');
+            const phraseCardTemplate = document.getElementById('phrase-card-template');
+
+            let currentFilter = 'opening';
+            let metricsChart = null;
+
+            // --- Fuzzy Search Setup ---
+            const phraseFuse = new Fuse(appData.phrases, {
+                keys: ['en', 'zh'],
+                threshold: 0.3,
+            });
+            const glossaryFuse = new Fuse(appData.glossary, {
+                keys: ['term', 'def'],
+                threshold: 0.3,
+            });
+
+            // --- Generate Report Draft Function (SMART VERSION) ---
+            function generateReportDraft({ type, dates, metrics, issues, actions }) {
+                // Helper for transitions
+                const transitions = [
+                    "Moving on to the next point,",
+                    "Furthermore,",
+                    "It is also worth noting that",
+                    "In addition,",
+                    "Looking ahead,"
+                ];
+                function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+                // Helper for risk/impact
+                function riskSentence(issues) {
+                    if (!issues) return '';
+                    return `Potential risks associated with this include: ${issues}. We are proactively managing these to minimize impact on quality and timelines.`;
+                }
+                // Helper for metrics interpretation
+                function interpretMetrics(metrics) {
+                    if (!metrics) return '';
+                    // Simple logic: if contains %, interpret as improvement/decline
+                    if (/\d+\.?\d*%/.test(metrics)) {
+                        const num = parseFloat(metrics.match(/\d+\.?\d*/)[0]);
+                        if (num >= 99) return `This reflects a strong performance, exceeding industry benchmarks and our internal targets.`;
+                        if (num >= 98) return `This is in line with our expectations and demonstrates process stability.`;
+                        if (num < 98) return `This is below our target, and we are investigating contributing factors.`;
+                    }
+                    return `This metric provides valuable insight into our current process capability.`;
+                }
+                // Helper for root cause
+                function rootCause(issues) {
+                    if (!issues) return '';
+                    return `Preliminary analysis suggests the root cause may be related to ${issues}. A detailed investigation is underway.`;
+                }
+                // Helper for next steps
+                function nextSteps(actions) {
+                    if (!actions) return '';
+                    return `To address these points, we have initiated the following actions: ${actions}. Progress will be closely monitored and reported.`;
+                }
+                // --- Draft logic by type ---
+                let draft = '';
+                if (type === 'weekly') {
+                    draft += `Good morning, everyone.\n`;
+                    draft += `This is my weekly quality update for the period of ${dates}.\n`;
+                    if (metrics) {
+                        draft += `Key metrics this week: ${metrics}. ${interpretMetrics(metrics)}\n`;
+                    }
+                    if (issues) {
+                        draft += `${pick(transitions)} the main challenges encountered were: ${issues}. ${riskSentence(issues)}\n`;
+                        draft += `${rootCause(issues)}\n`;
+                    }
+                    if (actions) {
+                        draft += `${nextSteps(actions)}\n`;
+                    }
+                    draft += `${pick(transitions)} we will continue to drive improvements and ensure alignment with our quality objectives.\n`;
+                    draft += `Thank you for your attention. I welcome any questions or suggestions as we strive for operational excellence.`;
+                } else if (type === 'deviation') {
+                    draft += `I would like to bring to your attention a deviation identified during ${dates}.\n`;
+                    if (issues) {
+                        draft += `The issue observed was: ${issues}. ${riskSentence(issues)}\n`;
+                        draft += `${rootCause(issues)}\n`;
+                    }
+                    if (actions) {
+                        draft += `Immediate containment and corrective actions have been implemented: ${actions}.\n`;
+                    }
+                    draft += `A comprehensive investigation is ongoing, and further updates will be provided.\n`;
+                    draft += `We are committed to transparent communication and continuous improvement to prevent recurrence.`;
+                } else if (type === 'capa') {
+                    draft += `This is an update on Corrective and Preventive Actions (CAPA) for the period of ${dates}.\n`;
+                    if (metrics) {
+                        draft += `Progress to date: ${metrics}. ${interpretMetrics(metrics)}\n`;
+                    }
+                    if (issues) {
+                        draft += `Current blockers or risks: ${issues}. ${riskSentence(issues)}\n`;
+                        draft += `${rootCause(issues)}\n`;
+                    }
+                    if (actions) {
+                        draft += `Key next steps: ${actions}.\n`;
+                    }
+                    draft += `${pick(transitions)} we are focused on timely closure and effectiveness verification of all CAPAs.\n`;
+                    draft += `Your support and collaboration are appreciated as we work towards sustained compliance and quality improvement.`;
+                }
+                return draft;
+            }
+
+            // --- Modal Accessibility: Focus Trap and ESC Close ---
+            function trapFocus(modal) {
+                const focusable = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+                const first = focusable[0];
+                const last = focusable[focusable.length - 1];
+                modal.addEventListener('keydown', function(e) {
+                    if (e.key === 'Tab') {
+                        if (e.shiftKey) {
+                            if (document.activeElement === first) {
+                                e.preventDefault();
+                                last.focus();
+                            }
+                        } else {
+                            if (document.activeElement === last) {
+                                e.preventDefault();
+                                first.focus();
+                            }
+                        }
+                    }
+                });
+            }
+
+            function renderNav() {
+                navList.innerHTML = '';
+                appData.parentCategories.forEach(pCat => {
+                    const parentLi = document.createElement('li');
+                    parentLi.innerHTML = `<h3 class="mt-4 mb-2 text-sm font-semibold text-gray-500 uppercase tracking-wider">${pCat.name}</h3>`;
+                    navList.appendChild(parentLi);
+                    
+                    const childUl = document.createElement('ul');
+                    childUl.className = 'space-y-1';
+                    
+                    const children = appData.categories.filter(cat => cat.parent === pCat.id);
+                    children.forEach(cat => {
+                        const li = document.createElement('li');
+                        const link = document.createElement('a');
+                        link.href = '#';
+                        link.textContent = cat.name;
+                        link.dataset.filter = cat.id;
+                        link.className = 'block px-4 py-2 rounded-md transition-colors duration-200 hover:bg-gray-200/50';
+                        if (cat.id === currentFilter) {
+                            link.classList.add('active-nav');
+                        }
+                        li.appendChild(link);
+                        childUl.appendChild(li);
+                    });
+                    navList.appendChild(childUl);
+                });
+            }
+
+            function renderContent(filter, searchResults = '') {
+                mainContent.innerHTML = '';
+                currentFilter = filter;
+                const parentCat = appData.parentCategories.find(p => p.id === appData.categories.find(c => c.id === filter)?.parent);
+                const currentCat = appData.categories.find(c => c.id === filter);
+                const header = document.createElement('div');
+                header.className = 'mb-8';
+                if (parentCat) {
+                    header.innerHTML += `<h2 class="text-3xl font-bold text-gray-800 mb-2">${parentCat.name}</h2>`;
+                }
+                if (currentCat && filter !== 'metrics' && filter !== 'capa_lifecycle' && filter !== 'glossary' && filter !== 'all') {
+                    header.innerHTML += `<p class="text-lg text-gray-600">${currentCat.name}</p>`;
+                }
+                if (parentCat && !currentCat) {
+                    header.innerHTML += `<p class="text-lg text-gray-600 prose-custom max-w-full">${parentCat.desc}</p>`;
+                }
+                mainContent.appendChild(header);
+                if (filter === 'metrics') {
+                    const template = document.getElementById('metrics-template').content.cloneNode(true);
+                    mainContent.appendChild(template);
+                    const phraseContainer = mainContent.querySelector('#phrase-container');
+                    const phrasesToRender = appData.phrases.filter(p => p.cat === 'metrics');
+                    renderPhraseCards(phrasesToRender, phraseContainer);
+                    createMetricsChart();
+                    return;
+                }
+                if (filter === 'capa_lifecycle') {
+                    const template = document.getElementById('capa-lifecycle-template').content.cloneNode(true);
+                    mainContent.appendChild(template);
+                    return;
+                }
+                if (filter === 'glossary') {
+                    const template = document.getElementById('glossary-template').content.cloneNode(true);
+                    mainContent.appendChild(template);
+                    const glossaryList = mainContent.querySelector('#glossary-list');
+                    let termsToRender = Array.isArray(searchResults) && searchResults.length ? searchResults : appData.glossary;
+                    renderGlossary(termsToRender, glossaryList);
+                    return;
+                }
+                let phrasesToRender = Array.isArray(searchResults) && searchResults.length ? searchResults : appData.phrases.filter(p => p.cat === filter);
+                renderPhraseCards(phrasesToRender, mainContent);
+            }
+            
+            function renderPhraseCards(phrases, container) {
+                if (phrases.length === 0) {
+                     container.innerHTML += `<p class="text-gray-500">未找到相关短语。</p>`;
+                     return;
+                }
+                phrases.forEach(phrase => {
+                    const card = phraseCardTemplate.content.cloneNode(true);
+                    card.querySelector('.phrase-english').textContent = phrase.en;
+                    card.querySelector('.phrase-chinese').textContent = phrase.zh;
+                    card.querySelector('.copy-btn').dataset.text = phrase.en;
+                    container.appendChild(card);
+                });
+            }
+
+            function renderGlossary(terms, container) {
+                container.innerHTML = '';
+                if(terms.length === 0) {
+                    container.innerHTML = `<p class="text-gray-500">未找到相关术语。</p>`;
+                    return;
+                }
+                terms.forEach(item => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'bg-white p-4 rounded-lg shadow-sm border border-gray-200/80';
+                    itemDiv.innerHTML = `
+                        <dt class="font-bold text-lg text-[#2c5282]">${item.term}</dt>
+                        <dd class="text-gray-600 mt-1">${item.def}</dd>
+                    `;
+                    container.appendChild(itemDiv);
+                });
+            }
+
+            function createMetricsChart() {
+                const ctx = document.getElementById('metricsChart').getContext('2d');
+                if (metricsChart) {
+                    metricsChart.destroy();
+                }
+                metricsChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['第1周', '第2周', '第3周', '本周'],
+                        datasets: [{
+                            label: '首次通过率 (FPY)',
+                            data: [98.5, 98.7, 98.9, 99.2],
+                            backgroundColor: '#6C8EAD',
+                            borderColor: '#597a9b',
+                            borderWidth: 1
+                        }, {
+                            type: 'line',
+                            label: '目标',
+                            data: [98.5, 98.5, 98.5, 98.5],
+                            borderColor: '#E53E3E',
+                            borderWidth: 2,
+                            fill: false,
+                            pointRadius: 0,
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: false,
+                                min: 98,
+                                suggestedMax: 100,
+                                ticks: {
+                                    callback: function(value) {
+                                        return value + '%';
+                                    }
+                                }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.dataset.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed.y !== null) {
+                                            label += context.parsed.y + '%';
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            navList.addEventListener('click', e => {
+                e.preventDefault();
+                const target = e.target.closest('a');
+                if (target && target.dataset.filter) {
+                    searchInput.value = '';
+                    renderContent(target.dataset.filter);
+                    renderNav();
+                }
+            });
+
+            mainContent.addEventListener('click', e => {
+                const copyBtn = e.target.closest('.copy-btn');
+                if (copyBtn) {
+                    const textToCopy = copyBtn.dataset.text;
+                    navigator.clipboard.writeText(textToCopy).then(() => {
+                        const originalText = copyBtn.querySelector('span').textContent;
+                        copyBtn.querySelector('span').textContent = '已复制!';
+                        copyBtn.classList.add('bg-green-600');
+                        setTimeout(() => {
+                            copyBtn.querySelector('span').textContent = originalText;
+                            copyBtn.classList.remove('bg-green-600');
+                        }, 2000);
+                    }).catch(err => {
+                        console.error('复制失败: ', err);
+                    });
+                }
+            });
+            
+            searchInput.addEventListener('input', e => {
+                const searchTerm = e.target.value.trim();
+                if (searchTerm) {
+                    const currentActive = navList.querySelector('.active-nav');
+                    if (currentActive) currentActive.classList.remove('active-nav');
+                    // Glossary fuzzy search
+                    if (appData.glossary.some(item => item.term.toLowerCase().includes(searchTerm.toLowerCase()))) {
+                        const glossaryResults = glossaryFuse.search(searchTerm).map(r => r.item);
+                        renderContent('glossary', glossaryResults);
+                    } else {
+                        // Phrase fuzzy search across all categories
+                        const phraseResults = phraseFuse.search(searchTerm).map(r => r.item);
+                        renderContent('all', phraseResults);
+                    }
+                } else {
+                    renderContent(currentFilter || 'opening');
+                    renderNav();
+                }
+            });
+
+            // Report Builder Modal Logic
+            const reportBuilderBtn = document.getElementById('start-report-builder');
+            const reportBuilderModal = document.getElementById('report-builder-modal');
+            const closeReportBuilder = document.getElementById('close-report-builder');
+            const reportBuilderForm = document.getElementById('report-builder-form');
+            const reportDraftDiv = document.getElementById('report-draft');
+            const reportDraftContent = reportDraftDiv ? reportDraftDiv.querySelector('div') : null;
+
+            if (reportBuilderBtn && reportBuilderModal) {
+                reportBuilderBtn.addEventListener('click', () => {
+                    reportBuilderModal.classList.remove('hidden');
+                    setTimeout(() => {
+                        const firstInput = reportBuilderModal.querySelector('input, select, button');
+                        if (firstInput) firstInput.focus();
+                    }, 100);
+                    trapFocus(reportBuilderModal);
+                });
+            }
+            if (closeReportBuilder && reportBuilderModal) {
+                closeReportBuilder.addEventListener('click', () => {
+                    reportBuilderModal.classList.add('hidden');
+                    reportBuilderForm.reset();
+                    reportDraftDiv.classList.add('hidden');
+                });
+            }
+            if (reportBuilderForm) {
+                reportBuilderForm.addEventListener('submit', e => {
+                    e.preventDefault();
+                    const type = document.getElementById('report-type').value;
+                    const dates = document.getElementById('report-dates').value;
+                    const metrics = document.getElementById('report-metrics').value;
+                    const issues = document.getElementById('report-issues').value;
+                    const actions = document.getElementById('report-actions').value;
+                    const draft = generateReportDraft({ type, dates, metrics, issues, actions });
+                    if (reportDraftDiv && reportDraftContent) {
+                        reportDraftContent.innerHTML = `
+                            <div><strong>English Draft:</strong></div>
+                            <pre id="draft-en" class="bg-white border rounded p-2 mb-2">${draft}</pre>
+                            <div class="flex gap-2 mt-2">
+                                <button id="copy-report-draft" class="px-4 py-2 bg-[#2c5282] text-white rounded-full font-semibold shadow hover:bg-[#1a365d] transition">复制草稿</button>
+                            </div>
+                        `;
+                        reportDraftDiv.classList.remove('hidden');
+                        document.getElementById('copy-report-draft').onclick = () => {
+                            const val = document.getElementById('draft-en').textContent;
+                            navigator.clipboard.writeText(val);
+                        };
+                    }
+                });
+            }
+
+            // Initial render
+            renderNav();
+            renderContent(currentFilter);
+        });
+    </script>
+</body>
+</html>
